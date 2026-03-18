@@ -1,0 +1,106 @@
+import pandas as pd
+import numpy as np
+
+
+# =========================
+# Indicators
+# =========================
+
+def calculate_sma(data, window):
+    return data.rolling(window=window).mean()
+
+
+def calculate_ema(data, window):
+    return data.ewm(span=window, adjust=False).mean()
+
+
+def calculate_rsi(data, window=14):
+    delta = data.diff()
+
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+
+    gain_series = pd.Series(gain, index=data.index)
+    loss_series = pd.Series(loss, index=data.index)
+
+    avg_gain = gain_series.rolling(window=window).mean()
+    avg_loss = loss_series.rolling(window=window).mean()
+
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi
+
+
+# =========================
+# Signal Logic
+# =========================
+
+def generate_signal(row):
+    if pd.isna(row["RSI_14"]) or pd.isna(row["SMA_20"]):
+        return "No Signal"
+
+    if row["Close"] > row["SMA_20"] and row["RSI_14"] < 70:
+        return "Bullish Trend"
+    elif row["Close"] < row["SMA_20"] and row["RSI_14"] > 30:
+        return "Bearish Trend"
+    elif row["RSI_14"] >= 70:
+        return "Potential Overbought"
+    elif row["RSI_14"] <= 30:
+        return "Potential Oversold"
+    else:
+        return "Neutral"
+
+
+# =========================
+# Sample Data
+# =========================
+
+def load_sample_data():
+    prices = [
+        100, 102, 101, 105, 107, 110, 108, 112, 115, 117,
+        116, 119, 121, 120, 123, 125, 127, 126, 129, 131,
+        130, 132, 134, 133, 136, 138, 140, 139, 141, 144
+    ]
+
+    dates = pd.date_range(start="2026-01-01", periods=len(prices), freq="D")
+
+    return pd.DataFrame({
+        "Date": dates,
+        "Close": prices
+    })
+
+
+# =========================
+# Main Execution
+# =========================
+
+def main():
+    df = load_sample_data()
+
+    df["SMA_20"] = calculate_sma(df["Close"], 20)
+    df["EMA_10"] = calculate_ema(df["Close"], 10)
+    df["RSI_14"] = calculate_rsi(df["Close"], 14)
+
+    df["Signal"] = df.apply(generate_signal, axis=1)
+
+    print("\n📊 Market Analysis Result")
+    print("=" * 50)
+    print(df.tail(10).to_string(index=False))
+
+    latest = df.iloc[-1]
+
+    print("\n📈 Latest Market Insight")
+    print("-" * 50)
+    print(f"Date: {latest['Date'].date()}")
+    print(f"Close Price: {latest['Close']}")
+    print(f"SMA 20: {latest['SMA_20']:.2f}" if pd.notna(latest["SMA_20"]) else "SMA 20: N/A")
+    print(f"EMA 10: {latest['EMA_10']:.2f}" if pd.notna(latest["EMA_10"]) else "EMA 10: N/A")
+    print(f"RSI 14: {latest['RSI_14']:.2f}" if pd.notna(latest["RSI_14"]) else "RSI 14: N/A")
+    print(f"Signal: {latest['Signal']}")
+
+    print("\n⚠️ Disclaimer: This is for educational purposes only.")
+
+
+if __name__ == "__main__":
+    main()
